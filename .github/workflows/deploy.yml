@@ -34,19 +34,18 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: '_workers_next'
           secrets: |
+            ADMIN_USERS
             AUTH_SECRET
             MERCHANT_ID
             MERCHANT_KEY
+            NEXT_PUBLIC_API_URL
             OAUTH_CLIENT_ID
             OAUTH_CLIENT_SECRET
-          vars: |
-            ADMIN_USERS
-            NEXT_PUBLIC_API_URL
         env:
+          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           MERCHANT_ID: ${{ secrets.MERCHANT_ID }}
           MERCHANT_KEY: ${{ secrets.MERCHANT_KEY }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
           OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
-          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
