@@ -2,6 +2,7 @@ name: Upstream Sync
 
 permissions:
   contents: write
+  actions: write
 
 on:
   schedule:
@@ -46,9 +47,27 @@ jobs:
               await exec.exec('git', ['remote', 'add', 'upstream', 'https://github.com/chatgptuk/ldc-shop.git']);
               await exec.exec('git', ['fetch', 'upstream']);
 
-              // Hard Reset to Upstream Main
+              // Sync code but preserve local .github directory
               await exec.exec('git', ['checkout', 'main']);
-              await exec.exec('git', ['reset', '--hard', 'upstream/main']);
+              
+              // Get list of changed files from upstream
+              const { stdout } = await exec.getExecOutput('git', ['diff', '--name-only', 'HEAD', 'upstream/main']);
+              const changedFiles = stdout.split('\n').filter(f => f && !f.startsWith('.github/'));
+              
+              if (changedFiles.length > 0) {
+                console.log(`📝 Syncing ${changedFiles.length} files from upstream (excluding .github/)`);
+                
+                // Checkout changed files from upstream, excluding .github
+                for (const file of changedFiles) {
+                  try {
+                    await exec.exec('git', ['checkout', 'upstream/main', '--', file]);
+                  } catch (e) {
+                    console.log(`⚠️ Could not sync ${file}: ${e.message}`);
+                  }
+                }
+              } else {
+                console.log('ℹ️ No code changes to sync from upstream');
+              }
               
               // Restore user's wrangler.json if it was backed up
               if (userWrangler) {
