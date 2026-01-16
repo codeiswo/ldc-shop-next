@@ -61,6 +61,27 @@ jobs:
               // Force Push
               await exec.exec('git', ['push', 'origin', 'main', '--force']);
               
+              console.log('✅ Sync completed successfully');
+              
             } catch (error) {
               core.setFailed(`Sync failed: ${error.message}`);
             }
+  
+  # Trigger deployment after successful sync
+  trigger_deploy:
+    needs: sync_latest_from_upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Deploy Workflow
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: 'main'
+            });
+            console.log('✅ Triggered deployment workflow');
+
