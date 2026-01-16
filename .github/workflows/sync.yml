@@ -1,114 +1,64 @@
-name: Upstream Sync
-
-permissions:
-  contents: write
-  actions: write
+name: Deploy to Cloudflare Workers
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  sync_latest_from_upstream:
+  deploy:
     runs-on: ubuntu-latest
+    name: Deploy to Cloudflare Workers
     steps:
-      - name: Checkout target repo
+      - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          fetch-depth: 0 
+          node-version: '20'
 
-      - name: Sync Upstream
-        uses: actions/github-script@v6
+      - name: Install dependencies in _workers_next
+        run: npm ci
+        working-directory: _workers_next
+
+      - name: Build for Cloudflare Workers
+        run: npx opennextjs-cloudflare build
+        working-directory: _workers_next
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
         with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            
-            try {
-              // Backup user's wrangler.json (if exists and contains database_id)
-              const wranglerPath = '_workers_next/wrangler.json';
-              let userWrangler = null;
-              
-              if (fs.existsSync(wranglerPath)) {
-                const content = fs.readFileSync(wranglerPath, 'utf8');
-                // Only backup if user has customized it (contains d1_databases)
-                if (content.includes('d1_databases')) {
-                  userWrangler = content;
-                  console.log('📦 Backed up user wrangler.json with D1 config');
-                }
-              }
-              
-              // Configure Git
-              await exec.exec('git', ['config', '--global', 'user.name', 'GitHub Actions']);
-              await exec.exec('git', ['config', '--global', 'user.email', 'actions@github.com']);
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: '_workers_next'
+          secrets: |
+            ADMIN_USERS
+            AUTH_SECRET
+            MERCHANT_ID
+            MERCHANT_KEY
+            NEXT_PUBLIC_APP_URL
+            OAUTH_CLIENT_ID
+            OAUTH_CLIENT_SECRET
+        env:
+          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          MERCHANT_ID: ${{ secrets.MERCHANT_ID }}
+          MERCHANT_KEY: ${{ secrets.MERCHANT_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
+          OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
 
-              // Add Upstream
-              await exec.exec('git', ['remote', 'add', 'upstream', 'https://github.com/chatgptuk/ldc-shop.git']);
-              await exec.exec('git', ['fetch', 'upstream']);
-
-              // Sync code but preserve local .github directory
-              await exec.exec('git', ['checkout', 'main']);
-              
-              // Get list of changed files from upstream
-              const { stdout } = await exec.getExecOutput('git', ['diff', '--name-only', 'HEAD', 'upstream/main']);
-              const changedFiles = stdout.split('\n').filter(f => f && !f.startsWith('.github/'));
-              
-              if (changedFiles.length > 0) {
-                console.log(`📝 Syncing ${changedFiles.length} files from upstream (excluding .github/)`);
-                
-                // Checkout changed files from upstream, excluding .github
-                for (const file of changedFiles) {
-                  try {
-                    await exec.exec('git', ['checkout', 'upstream/main', '--', file]);
-                  } catch (e) {
-                    console.log(`⚠️ Could not sync ${file}: ${e.message}`);
-                  }
-                }
-              } else {
-                console.log('ℹ️ No code changes to sync from upstream');
-              }
-              
-              // Restore user's wrangler.json if it was backed up
-              if (userWrangler) {
-                fs.writeFileSync(wranglerPath, userWrangler);
-                await exec.exec('git', ['add', wranglerPath]);
-                
-                // Only commit if there are changes
-                try {
-                  await exec.exec('git', ['diff', '--cached', '--quiet']);
-                  console.log('ℹ️ No changes to wrangler.json, skipping commit');
-                } catch {
-                  // diff --quiet returns non-zero if there are changes
-                  await exec.exec('git', ['commit', '-m', 'chore: preserve user wrangler.json config']);
-                  console.log('✅ Restored user wrangler.json with D1 config');
-                }
-              }
-
-              // Force Push
-              await exec.exec('git', ['push', 'origin', 'main', '--force']);
-              
-              console.log('✅ Sync completed successfully');
-              
-            } catch (error) {
-              core.setFailed(`Sync failed: ${error.message}`);
-            }
-  
-  # Trigger deployment after successful sync
-  trigger_deploy:
-    needs: sync_latest_from_upstream
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Deploy Workflow
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'deploy.yml',
-              ref: 'main'
-            });
-            console.log('✅ Triggered deployment workflow');
-
+      - name: Upload optional variables (skip if exists)
+        continue-on-error: true
+        run: |
+          echo "Attempting to set ADMIN_USERS..."
+          echo "${{ secrets.ADMIN_USERS }}" | npx wrangler secret put ADMIN_USERS || echo "⚠️ ADMIN_USERS already exists, skipping"
+          
+          echo "Attempting to set NEXT_PUBLIC_APP_URL..."
+          echo "${{ secrets.NEXT_PUBLIC_APP_URL }}" | npx wrangler secret put NEXT_PUBLIC_APP_URL || echo "⚠️ NEXT_PUBLIC_APP_URL already exists, skipping"
+        working-directory: _workers_next
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
