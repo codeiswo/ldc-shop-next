@@ -54,8 +54,16 @@ jobs:
               if (userWrangler) {
                 fs.writeFileSync(wranglerPath, userWrangler);
                 await exec.exec('git', ['add', wranglerPath]);
-                await exec.exec('git', ['commit', '-m', 'chore: preserve user wrangler.json config']);
-                console.log('✅ Restored user wrangler.json with D1 config');
+                
+                // Only commit if there are changes
+                try {
+                  await exec.exec('git', ['diff', '--cached', '--quiet']);
+                  console.log('ℹ️ No changes to wrangler.json, skipping commit');
+                } catch {
+                  // diff --quiet returns non-zero if there are changes
+                  await exec.exec('git', ['commit', '-m', 'chore: preserve user wrangler.json config']);
+                  console.log('✅ Restored user wrangler.json with D1 config');
+                }
               }
 
               // Force Push
