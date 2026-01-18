@@ -22,25 +22,24 @@ export async function checkIn() {
     const userId = session.user.id
 
     try {
-        // Drizzle's {mode: 'timestamp'} stores timestamps as SECONDS in D1, not milliseconds!
+        // Store and compare timestamps in milliseconds.
         const now = new Date();
         const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
         const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
 
-        // Convert to seconds for D1 comparison
-        const startSec = Math.floor(startOfDayUTC.getTime() / 1000);
-        const endSec = Math.floor(endOfDayUTC.getTime() / 1000);
+        const startMs = startOfDayUTC.getTime();
+        const endMs = endOfDayUTC.getTime();
 
         const existingResult: any = await db.run(sql`
             SELECT id FROM daily_checkins_v2 
             WHERE user_id = ${userId} 
-            AND created_at >= ${startSec}
-            AND created_at < ${endSec}
+            AND created_at >= ${startMs}
+            AND created_at < ${endMs}
             LIMIT 1
         `)
         // D1 returns { results: [...], success: true, meta: {...} }
         const existing = existingResult?.results || existingResult?.rows || []
-        console.log('[CheckIn] userId:', userId, 'range:', startSec, '-', endSec, 'existing:', existing.length)
+        console.log('[CheckIn] userId:', userId, 'range:', startMs, '-', endMs, 'existing:', existing.length)
 
         if (existing.length > 0) {
             return { success: false, error: "Already checked in today" }
@@ -112,26 +111,25 @@ export async function getCheckinStatus() {
     }
 
     try {
-        // Drizzle's {mode: 'timestamp'} stores timestamps as SECONDS in D1, not milliseconds!
+        // Store and compare timestamps in milliseconds.
         const now = new Date();
         const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
         const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
 
-        // Convert to seconds for D1 comparison
-        const startSec = Math.floor(startOfDayUTC.getTime() / 1000);
-        const endSec = Math.floor(endOfDayUTC.getTime() / 1000);
+        const startMs = startOfDayUTC.getTime();
+        const endMs = endOfDayUTC.getTime();
 
         const result: any = await db.run(sql`
             SELECT id FROM daily_checkins_v2 
             WHERE user_id = ${session.user.id} 
-            AND created_at >= ${startSec}
-            AND created_at < ${endSec}
+            AND created_at >= ${startMs}
+            AND created_at < ${endMs}
             LIMIT 1
         `)
 
         // D1 returns { results: [...], success: true, meta: {...} }
         const rows = result?.results || result?.rows || []
-        console.log('[CheckinStatus] userId:', session.user.id, 'range:', startSec, '-', endSec, 'rows:', rows.length)
+        console.log('[CheckinStatus] userId:', session.user.id, 'range:', startMs, '-', endMs, 'rows:', rows.length)
 
         return { checkedIn: rows.length > 0 }
     } catch (error: any) {

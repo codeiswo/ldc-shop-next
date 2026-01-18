@@ -4,9 +4,10 @@ import { useI18n } from "@/lib/i18n/context"
 
 interface FooterContentProps {
     customFooter: string | null
+    version: string
 }
 
-export function FooterContent({ customFooter }: FooterContentProps) {
+export function FooterContent({ customFooter, version }: FooterContentProps) {
     const { t } = useI18n()
 
     return (
@@ -21,7 +22,7 @@ export function FooterContent({ customFooter }: FooterContentProps) {
                     {t('footer.poweredBy')}
                 </a>
                 <a href="https://github.com/chatgptuk/ldc-shop" target="_blank" rel="noreferrer" className="text-center text-xs text-muted-foreground/40 hover:text-primary transition-colors duration-300">
-                    v0.2.5
+                    v{version}
                 </a>
             </div>
         </footer>

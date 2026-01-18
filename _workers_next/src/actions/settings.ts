@@ -4,6 +4,7 @@ import { setSetting, getSetting } from "@/lib/db/queries"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { sql } from "drizzle-orm"
+import { checkAdmin } from "@/actions/admin"
 
 export type AnnouncementConfig = {
     content: string
@@ -30,6 +31,8 @@ function parseAnnouncement(raw: string | null): AnnouncementConfig | null {
 }
 
 export async function saveAnnouncement(config: AnnouncementConfig) {
+    await checkAdmin()
+
     const content = String(config.content || '')
     const startAt = config.startAt ? String(config.startAt) : null
     const endAt = config.endAt ? String(config.endAt) : null
